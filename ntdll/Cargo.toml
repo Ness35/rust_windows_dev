@@ -1,5 +1,5 @@
 [package]
-name = "pop_calc"
+name = "ntdll"
 version = "0.1.0"
 authors = ["Garu"]
 edition = "2021"
@@ -13,4 +13,4 @@ winapi = { version = "0.3", features = ["winuser",
 "errhandlingapi",
 "synchapi",
 ] }
-
+ntdll = "0.0.3"
