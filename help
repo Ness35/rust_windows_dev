@@ -1,6 +1,7 @@
 cargo build --target x86_64-pc-windows-gnu
 
+git status
+git add ...
 git commit -m "Description"
-
-git push -u origin <nom_de_la_branche>
-
+git push -u origin mzin
+git pull origin main
