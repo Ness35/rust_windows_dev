@@ -1,9 +1,31 @@
 use winapi::um::processthreadsapi::{CreateThread};
 use winapi::um::memoryapi::{VirtualAlloc};
 use winapi::um::errhandlingapi::{GetLastError};
-use winapi::um::synchapi::WaitForSingleObject;
+use winapi::um::synchapi::{WaitForSingleObject};
 use winapi::ctypes::{c_void};
 use std::mem::transmute;
+
+macro_rules! okay
+{
+    ($msg:expr) => {
+        println!("[+] {}", $msg);
+    };
+}
+
+macro_rules! info
+{
+    ($msg:expr) => {
+        println!("[*] {}", $msg);
+    };
+}
+
+macro_rules! warn
+{
+    ($msg:expr) => {
+        println!("[-] {}", $msg);
+    };
+}
+
 
 fn main()
 {
@@ -20,14 +42,14 @@ fn main()
             
             let mut threadsid: u32 = 0;
             let threadhandle: *mut c_void = CreateThread(std::ptr::null_mut(), 0, Some(transmute(base)), std::ptr::null_mut(), 0, &mut threadsid);
-            println!("ID of the Threads: {}", threadsid);
-            println!("Handle of the Threads: {:x?}", threadhandle);
+            okay!("ID of the Threads: {}", threadsid);
+            okay!("Handle of the Threads: {:x?}", threadhandle);
             
             WaitForSingleObject(threadhandle, 0xFFFFFFFF);
         }
         else
         {
-            println!("Allocation in the memory failed: {}", GetLastError());
+            warn!("Allocation in the memory failed: {}", GetLastError());
         }
 
     }
