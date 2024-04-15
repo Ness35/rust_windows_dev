@@ -7,9 +7,24 @@ use winapi::ctypes::c_void;
 use std::ptr::null_mut;
 use std::mem::transmute;
 
-const K: &str = "[+]";
-const E: &str = "[-]";
-const I: &str = "[*]";
+macro_rules! okay {
+    ($($arg:tt)*) => {
+        print!("[+] ");
+        println!($($arg)*);
+    };
+}
+macro_rules! warn {
+    ($($arg:tt)*) => {
+        print!("[-] ");
+        println!($($arg)*);
+    };
+}
+macro_rules! info {
+    ($($arg:tt)*) => {
+        print!("[*] ");
+        println!($($arg)*);
+    };
+}
 
 fn main()
 {
